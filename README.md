@@ -1,6 +1,6 @@
 # HYPCNet: A Hybrid Yoga Pose Classification Neural Network
 
-This project aims to be create a benchmark on classification yoga poses using pure Convoluted Neural Networks (CNN) and without using any specialized techniques. This is achieved by using a novel idea of using ConvNext as a backbon to extract metafeatures from images and using conventional classifying machine learning techniques to correcty predict yoga poses with higher accuracy.
+This project aims to be a benchmark on classifying yoga poses using pure Convolutional Neural Networks (CNN) and without using any specialized technique. This is achieved by using a novel idea of using ConvNext as a backbon to extract metafeatures from images and using conventional classifying machine learning techniques to correcty predict yoga poses with higher accuracy.
 
 ## Directory Structure
 
@@ -30,8 +30,8 @@ utils.py
 ## Features
 
 - **Hybrid Model Architecture**: Integration of ConvNeXt with traditional ML models like XGboost, RandomForest etc.
-- **Few Shot Like Learning Abilities**: Metafeatures extractions helps in classifying classes with limited data.
-- **Extensive Assesment**: Detailed metrics comparision with other STOA models and contemporary models.
+- **Few Shot Like Learning Abilities**: Metafeatures extraction helps in classifying classes with limitations.
+- **Extensive Assesment**: Detailed metrics comparisions with other STOA models and contemporary models.
 
 ## Download the Dataset
 
