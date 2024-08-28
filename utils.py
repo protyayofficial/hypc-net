@@ -21,7 +21,7 @@ class SafeImageFolder(datasets.ImageFolder):
                 index = (index + 1) % len(self.samples)
 
 
-def initialize_model(model_name, yoga_class, keep_frozen=False, use_pretrained=True):
+def initialize_model(model_name, yoga_class, use_pretrained=True):
    
     model = None
     # model input image size
@@ -31,36 +31,36 @@ def initialize_model(model_name, yoga_class, keep_frozen=False, use_pretrained=T
     
     if model_name == "resnet50":
         model = models.resnet50(pretrained=use_pretrained)
-        num_ftrs = model.head.fc.in_features
-        model.head.fc = nn.Linear(num_ftrs, yoga_class)
+        num_ftrs = model.fc.in_features
+        model.fc = nn.Linear(num_ftrs, yoga_class)
     
     elif model_name == "vgg16":
         model = models.vgg16_bn(pretrained=use_pretrained)
-        num_ftrs = model.head.fc.in_features
-        model.head.fc = nn.Linear(num_ftrs, yoga_class)
+        num_ftrs = model.classifier[6].in_features
+        model.classifier[6] = nn.Linear(num_ftrs, yoga_class)
     
     elif model_name == "densenet":
         model = models.densenet121(pretrained=use_pretrained)
-        num_ftrs = model.head.fc.in_features
-        model.head.fc = nn.Linear(num_ftrs, yoga_class)
+        num_ftrs = model.classifier.in_features
+        model.classifier = nn.Linear(num_ftrs, yoga_class)
     
     elif model_name == "mobilenet_v3":
         model = models.mobilenet_v3(pretrained=use_pretrained)
-        num_ftrs = model.head.fc.in_features
-        model.head.fc = nn.Linear(num_ftrs, yoga_class)
+        num_ftrs = model.last_channel
+        model.fc = nn.Linear(num_ftrs, yoga_class)
 
     elif model_name == "efficientnet-b1":
         model = EfficientNet.from_pretrained('efficientnet-b1')
-        num_ftrs = model.head.fc.in_features
-        model.head.fc = nn.Linear(num_ftrs, yoga_class)
+        num_ftrs = model._fc.in_features
+        model._fc = nn.Linear(num_ftrs, yoga_class)
 
     elif model_name == "efficientnet-b7":
         model = EfficientNet.from_pretrained('efficientnet-b7')
-        num_ftrs = model.head.fc.in_features
-        model.head.fc = nn.Linear(num_ftrs, yoga_class)
+        num_ftrs = model._fc.in_features
+        model._fc = nn.Linear(num_ftrs, yoga_class)
 
-    elif model_name == "swin_v2_base":
-        model = models.swin_v2_b(pretrained = use_pretrained) 
+    elif model_name == "swin_tiny":
+        model = models.swin_t(pretrained = use_pretrained) 
         num_ftrs = model.head.fc.in_features
         model.head.fc = nn.Linear(num_ftrs, yoga_class)
 

@@ -1,6 +1,6 @@
 import os
 import argparse
-from torchvision import datasets, transforms, models
+from torchvision import transforms, models
 from torch.utils.data import DataLoader
 import torch.nn as nn
 import torch.optim as optim
@@ -27,33 +27,17 @@ warnings.filterwarnings("ignore")
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 parser = argparse.ArgumentParser(description='Transfer learning for HYPC Net')
-parser.add_argument('--name', default='dis_vgg16', type=str, help='name of the run')
+parser.add_argument('--name', default='convnext', type=str, help='name of the run')
 parser.add_argument('--seed', default=9, type=int, help='random seed')
-parser.add_argument('--train', default='data/train.tsv', type=str, help='path to train image files/labels')
-parser.add_argument('--dev', default='data/dev.tsv', type=str, help='path to dev image files/labels')
-parser.add_argument('--test', default='data/test.tsv', type=str, help='path to test image files/labels')
-parser.add_argument('--out-file', default='out/results.json', type=str, help='path to output file')
-parser.add_argument('--sep', default='\t', type=str, help='column separator used in csv(default: "\t")')
-parser.add_argument('--data-dir', default='./', type=str, help='root directory of images')
+parser.add_argument('--out-file', default='out/', type=str, help='directory for output files')
+parser.add_argument('--data-dir', default='./yoga82', type=str, help='root directory of images')
 parser.add_argument('--best-state-path', default='models/best.pth', type=str, help='path to best state checkpoint')
-parser.add_argument('--fig-dir', default='out/figures', type=str, help='directory path for output figures')
 parser.add_argument('--checkpoint-dir', default='out/models', type=str, help='directory for output models/states')
-parser.add_argument('--arch', default='vgg16', type=str,
-                    help='model architecture [resnet18, resnet50, resnet101, alexnet, vgg, vgg16, squeezenet, densenet,'
-                         'inception, efficientnet-b1, efficientnet-b7, convnext] (default: resnet18)')
+parser.add_argument('--arch', default='convnext', type=str,
+                    help='model architecture [resnet50, vgg16, efficientnet-b1, efficientnet-b7, swin_tiny, convnext] (default: convnext)')
 parser.add_argument('--yoga-class', default=82, type=int, help='number of classes for evaluation (6, 20, 82)')
-parser.add_argument('--batch-size', default=32, type=int, help='batch size (default: 32)')
-parser.add_argument('--learning-rate', default=1e-5, type=float, help='initial learning rate (default: 1e-5)')
-parser.add_argument('--weight-decay', default=0.0, type=float, help='weight decay (default: 0)')
-parser.add_argument('--num-epochs', default=50, type=int, help='number of epochs(default: 50)')
-parser.add_argument('--use-rand-augment', default=False, type=lambda x: (str(x).lower() == 'true'),
-                    help='use random augment or not')
-parser.add_argument('--keep-frozen', default=False, type=lambda x: (str(x).lower() == 'true'),
-                    help='whether to keep feature layers frozen (i.e., only update classification layers weight)')
-parser.add_argument('--rand-augment-n', default=2, type=int,
-                    help='random augment parameter N or number of augmentations applied sequentially')
-parser.add_argument('--rand-augment-m', default=9, type=int,
-                    help='random augment parameter M or shared magnitude across all augmentation operations')
+parser.add_argument('--learning-rate', default=1e-4, type=float, help='initial learning rate (default: 1e-4)')
+parser.add_argument('--num-epochs', default=25, type=int, help='number of epochs(default: 25)')
 
 
 def set_seed(seed: int = 9):
@@ -68,13 +52,13 @@ def set_seed(seed: int = 9):
     os.environ["PYTHONHASHSEED"] = str(seed)
     print(f"Random seed set as {seed}")
 
-def train_model(model, dataloaders, criterion, optimizer, scheduler, device, num_epochs, yoga_class, dataset_sizes):
+def train_model(model, dataloaders, criterion, optimizer, scheduler, device, num_epochs, yoga_class, dataset_sizes, out_dir, ckpt_dir):
     since = time.time()
     best_model_wts = copy.deepcopy(model.state_dict())
     best_acc = 0.0
 
     # Open the CSV file in write mode and write the header
-    with open(f"{model}_{yoga_class}_training_metrics.csv", 'w', newline='') as output_file:
+    with open(f"{out_dir}/{model}_{yoga_class}_training_metrics.csv", 'w', newline='') as output_file:
         fieldnames = ['epoch', 'train_loss', 'train_acc', 'test_loss', 'test_acc']
         dict_writer = csv.DictWriter(output_file, fieldnames=fieldnames)
         dict_writer.writeheader()
@@ -131,7 +115,7 @@ def train_model(model, dataloaders, criterion, optimizer, scheduler, device, num
                 torch.save(model.state_dict(), f'{model}_{yoga_class}_new_best_model.pth')
 
         # Write metrics to CSV after each epoch
-        with open(f"{model}_{yoga_class}_new_metrics.csv", 'a', newline='') as output_file:
+        with open(f"{out_dir}/{model}_{yoga_class}_new_metrics.csv", 'a', newline='') as output_file:
             dict_writer = csv.DictWriter(output_file, fieldnames=fieldnames)
             dict_writer.writerow(epoch_metrics)
 
@@ -144,9 +128,20 @@ def train_model(model, dataloaders, criterion, optimizer, scheduler, device, num
 
 def test_model(model, dataloaders, device, class_names):
     meta_features, meta_labels = generate_meta_features(model, dataloaders, device)
+    
+    cb_model = cb.CatBoostClassifier(verbose=0,random_state=9)
+    cb_model.fit(meta_features, meta_labels)
+
+    xgb_model = xgb.XGBClassifier(eval_metric='mlogloss', random_state=9)
+    xgb_model.fit(meta_features, meta_labels)
+    
+    rf_model = RandomForestClassifier(n_estimators=100, random_state=9)
+    rf_model.fit(meta_features, meta_labels)
+
     all_meta_features = []
     all_labels = []
 
+    model.eval()
     with torch.no_grad():
         for inputs, labels in dataloaders['test']:
             inputs = inputs.to(device)
@@ -163,17 +158,10 @@ def test_model(model, dataloaders, device, class_names):
             all_labels.append(labels.cpu().numpy())
 
     meta_features = np.vstack(all_meta_features)
-    meta_labels = np.hstack(all_labels)
+    true_labels = np.hstack(all_labels)
    #print(meta_features.shape)
     
-    cb_model = cb.CatBoostClassifier(verbose=0,random_state=9)
-    cb_model.fit(meta_features, meta_labels)
-
-    xgb_model = xgb.XGBClassifier(eval_metric='mlogloss', random_state=9)
-    xgb_model.fit(meta_features, meta_labels)
     
-    rf_model = RandomForestClassifier(n_estimators=100, random_state=9)
-    rf_model.fit(meta_features, meta_labels)
     
     metrics = {
         'accuracy': {},
@@ -193,11 +181,11 @@ def test_model(model, dataloaders, device, class_names):
         final_preds = backend.predict(meta_features)
         #final_preds_probs = backend.predict_proba(meta_features)
 
-        accuracy = accuracy_score(meta_labels, final_preds)
-        precision = precision_score(meta_labels, final_preds, average='weighted')
-        recall = recall_score(meta_labels, final_preds, average='weighted')
-        f1 = f1_score(meta_labels, final_preds, average='weighted')
-        report = classification_report(meta_labels, final_preds, target_names=class_names)
+        accuracy = accuracy_score(true_labels, final_preds)
+        precision = precision_score(true_labels, final_preds, average='weighted')
+        recall = recall_score(true_labels, final_preds, average='weighted')
+        f1 = f1_score(true_labels, final_preds, average='weighted')
+        report = classification_report(true_labels, final_preds, target_names=class_names)
 
         print(backend_name)
         print(f'Accuracy: {accuracy:.3f}')
