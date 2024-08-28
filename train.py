@@ -112,10 +112,10 @@ def train_model(model, dataloaders, criterion, optimizer, scheduler, device, num
             if phase == 'test' and epoch_acc > best_acc:
                 best_acc = epoch_acc
                 best_model_wts = copy.deepcopy(model.state_dict())
-                torch.save(model.state_dict(), f'{model}_{yoga_class}_new_best_model.pth')
+                torch.save(model.state_dict(), f'{ckpt_dir}/{model}_{yoga_class}_new_best_model.pth')
 
         # Write metrics to CSV after each epoch
-        with open(f"{out_dir}/{model}_{yoga_class}_new_metrics.csv", 'a', newline='') as output_file:
+        with open(f"{out_dir}/{model}_{yoga_class}_training_metrics.csv", 'a', newline='') as output_file:
             dict_writer = csv.DictWriter(output_file, fieldnames=fieldnames)
             dict_writer.writerow(epoch_metrics)
 
@@ -256,7 +256,7 @@ def main():
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=7, gamma=0.1)
 
     model = train_model(model, dataloaders, criterion, optimizer, scheduler, device=device,
-                                      num_epochs=num_epochs, yoga_class=args.yoga_class, dataset_sizes=dataset_sizes)
+                                      num_epochs=num_epochs, yoga_class=args.yoga_class, dataset_sizes=dataset_sizes, out_dir=args.out_dir, ckpt_dir=args.checkpoint_dir)
 
 
     if args.test:
